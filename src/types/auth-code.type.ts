@@ -4,4 +4,5 @@ export interface IAuthCode {
 	user: Types.ObjectId;
 	code: string;
 	expiresAt: Date;
+	purpose: 'registration' | 'password_reset';
 }

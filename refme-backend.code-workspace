@@ -5,33 +5,33 @@
       "path": ".",
     },
     {
-      "name": "config",
-      "path": "src/config"
+      "name": "src",
+      "path": "src"
     },
-    {
-      "name": "models",
-      "path": "src/models"
-    },
-    {
-      "name": "routes",
-      "path": "src/routes"
-    },
-    {
-      "name": "controllers",
-      "path": "src/controllers"
-    },
-    {
-      "name": "middleware",
-      "path": "src/middleware"
-    },
-    {
-      "name": "types",
-      "path": "src/types"
-    },
-    {
-      "name": "utils",
-      "path": "src/utils"
-    },
+    // {
+    //   "name": "models",
+    //   "path": "src/models"
+    // },
+    // {
+    //   "name": "routes",
+    //   "path": "src/routes"
+    // },
+    // {
+    //   "name": "controllers",
+    //   "path": "src/controllers"
+    // },
+    // {
+    //   "name": "middleware",
+    //   "path": "src/middleware"
+    // },
+    // {
+    //   "name": "types",
+    //   "path": "src/types"
+    // },
+    // {
+    //   "name": "utils",
+    //   "path": "src/utils"
+    // },
   ],
   "settings": {
     "editor.tabSize": 2,

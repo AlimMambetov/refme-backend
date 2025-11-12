@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { authApple, authGoogle, callbackApple, callbackGoogle, login, logout, refreshToken, register, resendVerifyCode, verifyCode } from '@/controllers';
+import { authApple, authGoogle, callbackApple, callbackGoogle, forgotPassword, login, logout, refreshToken, register, resendVerifyCode, verifyCode } from '@/controllers';
 
 const router = Router();
 
 
 router.post('/login', login);
 router.post('/register', register);
+router.post('/forgot-password', forgotPassword);
 router.get('/logout', logout);
 router.get('/refresh', refreshToken);
 

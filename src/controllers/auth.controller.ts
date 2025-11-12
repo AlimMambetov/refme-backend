@@ -84,40 +84,122 @@ export const resendVerifyCode = async (req: Request, res: Response): Promise<any
 	}
 };
 
+export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
+	try {
+		const { email } = req.body;
+
+		if (!email) return res.status(400).json({ message: 'Email is required' });
+
+		const user = await UserModel.findOne({ email });
+		console.log(email, user);
+
+		if (!user) {
+			// Для безопасности не сообщаем, что пользователь не найден
+			return res.status(200).json({ message: 'If the email exists, a reset code has been sent' });
+		}
+
+		// Генерируем 4-значный код
+		const code = generateCode(4);
+
+		// Сохраняем код с указанием цели - восстановление пароля
+		await AuthCodeModel.findOneAndUpdate(
+			{ user: user._id },
+			{
+				code,
+				expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 минут
+				purpose: 'password_reset', // указываем цель кода
+			},
+			{ upsert: true }
+		);
+
+		// Отправляем код на почту
+		await sendEmail(email, {
+			subject: 'RefMe Password Reset Code',
+			text: `Your password reset code is: ${code}. This code will expire in 5 minutes.`
+		});
+
+		return res.status(200).json({ message: 'If the email exists, a reset code has been sent' });
+	} catch (err) {
+		console.error(err);
+		return res.status(500).json({ message: 'Internal server error' });
+	}
+};
+
 
 export const verifyCode = async (req: Request, res: Response): Promise<any> => {
-	const { email, code } = req.body;
-	if (!email || !code) return res.status(400).json({ message: 'Email and code are required' });
+	const { email, code, newPassword } = req.body;
 
-	const user = await UserModel.findOne({ email });
-	if (!user) return res.status(404).json({ message: 'User not found' });
+	if (!email || !code) {
+		return res.status(400).json({ message: 'Email and code are required' });
+	}
 
-	const authCode = await AuthCodeModel.findOne({
-		user: user._id,
-		code,
-		expiresAt: { $gt: new Date() }, // не истек
-	});
+	try {
+		const user = await UserModel.findOne({ email });
+		if (!user) return res.status(404).json({ message: 'User not found' });
 
-	if (!authCode) return res.status(400).json({ message: 'Invalid or expired code' });
+		const authCode = await AuthCodeModel.findOne({
+			user: user._id,
+			code,
+			expiresAt: { $gt: new Date() },
+		});
 
-	// делаем код невалидным, чтобы нельзя было повторно использовать
-	user.emailVerified = true;
-	await user.save();
-	await authCode.deleteOne();
-	const { accessToken, refreshToken, refreshTokenExpiresAt } = generateTokens((user._id as any).toString());
+		if (!authCode) return res.status(400).json({ message: 'Invalid or expired code' });
 
-	setAuthCookies(res, accessToken, refreshToken);
+		// Определяем сценарий по purpose кода
+		if (authCode.purpose === 'registration') {
+			// Сценарий регистрации - подтверждаем email
+			user.emailVerified = true;
+			await user.save();
 
-	await TokenModel.create({
-		user: user._id,
-		refreshToken,
-		expiresAt: refreshTokenExpiresAt,
-		ip: req.ip, // автоматом берет IP из запроса
-		userAgent: req.headers['user-agent'], // строка браузера/устройства
-	});
+			const { accessToken, refreshToken, refreshTokenExpiresAt } = generateTokens((user._id as any).toString());
 
+			setAuthCookies(res, accessToken, refreshToken);
 
-	res.json({ accessToken, refreshToken, refreshTokenExpiresAt });
+			await TokenModel.create({
+				user: user._id,
+				refreshToken,
+				expiresAt: refreshTokenExpiresAt,
+				ip: req.ip,
+				userAgent: req.headers['user-agent'],
+			});
+
+			// Удаляем использованный код
+			await authCode.deleteOne();
+
+			return res.json({
+				message: 'Email verified successfully',
+				accessToken,
+				refreshToken,
+				refreshTokenExpiresAt
+			});
+
+		} else if (authCode.purpose === 'password_reset') {
+			// Сценарий восстановления пароля - проверяем наличие нового пароля
+			if (!newPassword) {
+				return res.status(400).json({
+					message: 'New password is required for password reset'
+				});
+			}
+
+			// Хешируем и устанавливаем новый пароль
+			const hashedPassword = await bcrypt.hash(newPassword, 12);
+			user.password = hashedPassword;
+			await user.save();
+
+			// Удаляем использованный код
+			await authCode.deleteOne();
+
+			return res.json({ message: 'Password reset successfully' });
+
+		} else {
+			// Неизвестный purpose
+			return res.status(400).json({ message: 'Invalid code purpose' });
+		}
+
+	} catch (err) {
+		console.error(err);
+		return res.status(500).json({ message: 'Internal server error' });
+	}
 };
 
 
@@ -225,8 +307,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 		res.status(500).json({ message: 'Internal server error' });
 	}
 };
-
-
 
 
 export const authGoogle = async (req: Request, res: Response): Promise<any> => {
@@ -344,7 +424,6 @@ export const callbackGoogle = async (req: Request, res: Response): Promise<any> 
 		res.status(500).json({ message: 'Internal server error' });
 	}
 }
-
 
 
 export const authApple = async (req: Request, res: Response): Promise<any> => {
