@@ -4,7 +4,8 @@ import app from '@/app';
 import { connectDB } from '@/config/database';
 
 
-const PORT = process.env.PORT || 5000;
+// const PORT = process.env.PORT || 5000;
+const PORT = 3030;
 
 async function start() {
 	await connectDB();
