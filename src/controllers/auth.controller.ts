@@ -84,14 +84,55 @@ export const resendVerifyCode = async (req: Request, res: Response): Promise<any
 	}
 };
 
+
+export const verifyCodeOnly = async (req: Request, res: Response): Promise<any> => {
+	const { email, code } = req.body;
+
+	console.log(email, code)
+	if (!email || !code) {
+		return res.status(400).json({ message: 'Email and code are required' });
+	}
+
+	try {
+		const user = await UserModel.findOne({ email });
+		if (!user) return res.status(404).json({ message: 'User not found' });
+
+		// Ищем валидный код (любого purpose)
+		const authCode = await AuthCodeModel.findOne({
+			user: user._id,
+			code,
+			expiresAt: { $gt: new Date() },
+		});
+
+		if (!authCode) {
+			return res.status(400).json({
+				success: false,
+				message: 'Invalid or expired code'
+			});
+		}
+
+		// Код верный!
+		return res.json({
+			success: true,
+			message: 'Code is valid'
+		});
+
+	} catch (err) {
+		console.error(err);
+		return res.status(500).json({
+			success: false,
+			message: 'Internal server error'
+		});
+	}
+};
+
 export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
 	try {
 		const { email } = req.body;
-
 		if (!email) return res.status(400).json({ message: 'Email is required' });
 
 		const user = await UserModel.findOne({ email });
-		console.log(email, user);
+		// console.log(email, user);
 
 		if (!user) {
 			// Для безопасности не сообщаем, что пользователь не найден
