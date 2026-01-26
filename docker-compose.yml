@@ -5,11 +5,13 @@ services:
     image: mongo:latest
     container_name: Refme-MongoDB
     ports:
-      - "${DB_PORT}:${DB_PORT}"
+      - "${DB_PORT}:27017"
     volumes:
       - ./data/mongodb:/data/db
     env_file:
-      - .env # Указываем файл с переменными
+      - .env # Указываем файл с переменнымиs
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${DB_USERNAME}
       - MONGO_INITDB_ROOT_PASSWORD=${DB_PASSWORD}
+      - MONGO_INITDB_DATABASE=${DB_NAME}
+    restart: unless-stopped

@@ -1,3 +1,5 @@
 export * from './tokens'
 export * from './sendMail'
 export * from './generateCode'
+export * from './tokens'
+export * from './AppError'
