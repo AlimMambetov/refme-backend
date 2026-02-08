@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 
+const objectIdRef = (ref: string): mongoose.SchemaDefinitionProperty => ({
+	type: mongoose.Schema.Types.ObjectId, ref, default: []
+});
+
 const userSchema = new mongoose.Schema({
 	username: String,
 	email: {
@@ -15,27 +19,16 @@ const userSchema = new mongoose.Schema({
 		minlength: 8,
 		select: false
 	},
-	avatar: {
-		type: String,
-		default: 'default-avatar.png',
-	},
+	avatar: { type: String, default: 'default-avatar.png', },
 	role: {
 		type: String,
 		enum: ['user', 'admin', 'moderator'],
 		default: 'user'
 	},
-	googleId: {
-		type: String,
-		required: false,
-	},
-	verifiedAt: {
-		type: Date,
-		default: null
-	},
-	isActive: {
-		type: Boolean,
-		default: true
-	}
+	googleId: { type: String, required: false, },
+	isActive: { type: Boolean, default: true },
+	likes: [objectIdRef('Ref')],
+	dislikes: [objectIdRef('Ref')]
 }, {
 	timestamps: true
 });

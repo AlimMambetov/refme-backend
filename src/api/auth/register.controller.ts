@@ -1,21 +1,29 @@
 import { Request, Response } from 'express';
-import { AppError, generateCode, sendEmail } from '../../utils';
-import { CodeModel, UserModel } from '../../database';
+import { AppError, generateTokens, setAuthCookies } from '../../utils';
+import { CodeModel, TokenModel, UserModel } from '../../database';
 import { catchAsync } from '../../middleware';
 
 
 export const register = catchAsync(async (req: Request, res: Response): Promise<any> => {
-	const { email, password } = req.body;
-	const existingUser = await UserModel.findOne({ email });
-	if (existingUser) throw new AppError(409, 'User already exists');
+	const { email, password, username, code } = req.body;
+	const codeMatched = await CodeModel.findOne({ email, code })
+	if (!codeMatched) throw new AppError(400, 'Invalid or expired code');
 
-	const user = new UserModel({ email, password })
+	const user = await new UserModel({ email, password, username })
 	await user.save();
-	const code = generateCode(4);
-	await CodeModel.create({ userId: user?._id, code, action: 'register' });
-	await sendEmail(email, { subject: 'RefMe verify code', text: `Your verification code is: ${code}` });
 
-	return res.status(201).json({ message: `Registration successful. Check your email ${email} for verification code.` });
+	const { accessToken, refreshToken, refreshTokenExpiresAt } = generateTokens((user._id as any).toString());
+	await TokenModel.create({
+		userId: user._id,
+		refreshToken,
+		expiresAt: refreshTokenExpiresAt,
+		ip: req.ip,
+		userAgent: req.headers['user-agent'],
+	});
+	setAuthCookies(res, accessToken, refreshToken);
+	await codeMatched.deleteOne();
+
+	return res.status(201).json({ success: true, message: `Registration successful.`, tokens: { accessToken, refreshToken } });
 })
 
 

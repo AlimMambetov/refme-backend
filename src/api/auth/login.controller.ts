@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../../middleware';
 import { CodeModel, TokenModel, UserModel } from '../../database';
-import { AppError, generateCode, generateTokens, sendEmail, setAuthCookies } from '../../utils';
+import { AppError, generateTokens, setAuthCookies } from '../../utils';
 import jwt from 'jsonwebtoken';
 
 export const login = catchAsync(async (req: Request, res: Response): Promise<any> => {
@@ -12,17 +12,8 @@ export const login = catchAsync(async (req: Request, res: Response): Promise<any
 	const isMatch = await user.comparePassword(password);
 	if (!isMatch) throw new AppError(401, 'Invalid password');
 
-	if (!user.verifiedAt) {
-		const code = generateCode(4);
-		let action = 'register';
-		await CodeModel.deleteMany({ userId: user._id, action });
-		await CodeModel.create({ userId: user._id, code, action });
-
-		sendEmail(email, { subject: 'RefMe verify code', text: `Your verification code is: ${code}` });
-		return res.status(401).json({ message: `Mail is not confirmed, the new code is sent to the mail ${email}` });
-	}
-
 	const { accessToken, refreshToken, refreshTokenExpiresAt } = generateTokens((user._id as any).toString());
+	await TokenModel.deleteMany({ userId: user._id, });
 	await TokenModel.create({
 		userId: user._id,
 		refreshToken,
@@ -32,36 +23,43 @@ export const login = catchAsync(async (req: Request, res: Response): Promise<any
 	});
 	setAuthCookies(res, accessToken, refreshToken);
 
-	res.json({ message: 'Logged in successfully', tokens: { accessToken, refreshToken } });
+	res.json({ success: true, message: 'Logged in successfully', tokens: { accessToken, refreshToken } });
 
 });
-
 
 
 
 export const forgotPassword = catchAsync(async (req: Request, res: Response): Promise<any> => {
-	const { email } = req.body;
+	const { email, code, password } = req.body;
 	const user = await UserModel.findOne({ email });
 	if (!user) throw new AppError(404, 'User not found');
+	const codeMatched = await CodeModel.findOne({ email, code });
+	if (!codeMatched) throw new AppError(400, 'Invalid or expired code');
 
-	const code = generateCode(4);
-	let action = 'password';
-	await CodeModel.deleteMany({ userId: user._id, action });
-	await CodeModel.create({ userId: user._id, code, action });
+	user.password = password;
+	await user.save();
 
-	// Отправляем код на почту
-	await sendEmail(email, {
-		subject: 'RefMe Password Reset Code',
-		text: `Your password reset code is: ${code}. This code will expire in 5 minutes.`
+	const { accessToken, refreshToken, refreshTokenExpiresAt } = generateTokens((user._id as any).toString());
+	setAuthCookies(res, accessToken, refreshToken);
+
+	await TokenModel.deleteMany({ userId: user._id, });
+	await TokenModel.create({
+		userId: user._id,
+		refreshToken,
+		expiresAt: refreshTokenExpiresAt,
+		ip: req.ip,
+		userAgent: req.headers['user-agent'],
 	});
 
-	return res.status(200).json({ message: 'If the email exists, a reset code has been sent' });
+	await codeMatched.deleteOne();
 
+	return res.status(200).json({ success: true, message: 'The password was changed successfully' });
 });
+
+
 
 export const logout = async (req: Request, res: Response) => {
 	let refreshToken = req.cookies?.refreshToken;
-
 	if (!refreshToken && req.headers.authorization) {
 		const authHeader = req.headers.authorization;
 		if (authHeader.startsWith('Bearer ')) refreshToken = authHeader.substring(7);
@@ -78,6 +76,7 @@ export const logout = async (req: Request, res: Response) => {
 		refreshToken
 	});
 };
+
 
 export const refreshToken = async (req: Request, res: Response): Promise<any> => {
 	let refreshToken = req.cookies?.refreshToken;
@@ -107,6 +106,6 @@ export const refreshToken = async (req: Request, res: Response): Promise<any> =>
 	await existingToken.save()
 	setAuthCookies(res, accessToken, newRefreshToken);
 
-	res.status(200).json({ message: 'Tokens refreshed', tokens: { accessToken, refreshToken: newRefreshToken } });
+	res.status(200).json({ success: true, message: 'Tokens refreshed', tokens: { accessToken, refreshToken: newRefreshToken } });
 
 };

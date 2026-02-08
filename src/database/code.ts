@@ -1,13 +1,8 @@
 import mongoose from 'mongoose';
 
 const codeSchema = new mongoose.Schema({
-	userId: mongoose.Schema.Types.ObjectId,
+	email: String,
 	code: String,
-	action: {
-		type: String,
-		enum: ['draft', 'register', 'password'],
-		default: 'draft'
-	},
 	expiresAt: {
 		type: Date,
 		default: () => new Date(Date.now() + 5 * 60 * 1000), // 5 минут

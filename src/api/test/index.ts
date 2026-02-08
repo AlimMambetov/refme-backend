@@ -1,23 +1,24 @@
 import { Router } from 'express';
-import { generateCode, sendEmail } from '../../utils';
 import { covertCompanies } from './convert-companies.controller';
+import { getCodes, sendCode } from './code.controller';
+import { z } from 'zod';
+import { zodSchema } from '../../utils/zodSchema';
+import { validate } from '../../middleware';
 
 const router = Router();
 
-router.get('/mail', async (_req, res) => {
-	try {
-		const { mail, title } = _req.query;
-		if (!mail) throw new Error("mail key is required");
-
-		await sendEmail(String(mail), { text: `code ${generateCode(4)}`, subject: String(title) })
-		res.status(200).json({ status: 'ok' });
-
-	} catch (error) {
-		console.log(error)
-		res.status(500).json({ status: JSON.stringify(error) });
-	}
+const validateOps = z.object({
+	email: z.email(),
+	code: z.string().min(4)
 });
 
-router.get('/convert-companies', covertCompanies)
+// Схемы валидации
+const sendCodeSchema = zodSchema(validateOps, ['email']);
+
+
+
+// router.get('/convert-companies', covertCompanies)
+router.get('/send-code', validate({ query: sendCodeSchema }), sendCode)
+router.get('/codes', getCodes)
 
 export default router;

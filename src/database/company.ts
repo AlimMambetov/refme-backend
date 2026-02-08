@@ -38,15 +38,28 @@ const companySchema = new mongoose.Schema({
 		type: String,
 		required: false,
 	},
+	refs: [{
+		type: mongoose.Schema.Types.ObjectId,
+		ref: 'Ref'
+	}]
 }, {
 	timestamps: true
 });
+
 
 // Автодобавление https:// к URL
 companySchema.pre('save', function () {
 	if (this.url && !this.url.startsWith('http')) {
 		this.url = `https://${this.url}`;
 	}
+});
+
+// Виртуальное поле refsCount (альтернатива массиву)
+companySchema.virtual('refsCount', {
+	ref: 'Ref',
+	localField: '_id',
+	foreignField: 'company',
+	count: true
 });
 
 // Виртуальное поле id

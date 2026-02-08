@@ -67,9 +67,6 @@ export const callbackGoogle = catchAsync(async (req: Request, res: Response): Pr
 		});
 		await user.save();
 	} else {
-		// Если пользователь уже существует
-		if (!user.verifiedAt) user.verifiedAt = new Date();
-		// Обновляем имя и аватар, если их нет
 		if (!user.username && name) user.username = name;
 		if (!user.avatar && avatar) user.avatar = avatar;
 		// Сохраняем Google ID для связывания аккаунтов
